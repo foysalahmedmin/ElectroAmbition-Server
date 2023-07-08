@@ -44,6 +44,7 @@ async function run() {
         client.connect();
         const database = client.db("ElectroAmbitionDB");
         const ProductsCollection = database.collection("ProductsCollection");
+        const ReviewCollection = database.collection("ReviewCollection")
 
 
         app.post('/jwt', (req, res) => {
@@ -63,19 +64,18 @@ async function run() {
         }
 
         app.get('/products/:category', async (req, res) => {
-            const category = req.params.category;
+            const category = req.params.category || 'all';
             const sort = req.query.sort;
             const page = parseInt(req.query.page) || 0;
-            const limit = parseInt(req.query.limit) || 10;
+            const limit = parseInt(req.query.limit) || 12;
             const skip = page * limit;
 
             let query = { category: category };
+            let sortQuery = {};
 
             if (category === 'all') {
                 query = {};
             }
-
-            let sortQuery = {};
 
             if (sort === 'latest') {
                 sortQuery = { date: -1 };
@@ -101,21 +101,54 @@ async function run() {
 
         app.get('/totalProducts/:category', async (req, res) => {
             const category = req.params.category;
+            let query = { category: category };
+
             if (category == 'all') {
-                const result = await ProductsCollection.countDocuments()
-                res.send({ totalProduct: result })
-            } else {
-                const result = await ProductsCollection.countDocuments({ category: category })
-                res.send({ totalProduct: result })
+                query = {};
             }
+
+            const result = await ProductsCollection.countDocuments(query);
+            res.send({ totalProduct: result })
         })
 
         app.get('/categories', async (req, res) => {
             const categories = await ProductsCollection.distinct("category");
-            console.log(categories);
-            res.send({categories: categories});
+            res.send({ categories: categories });
 
         })
+
+        app.get('/product/:id', async (req, res) => {
+            const id = req.params.id;
+
+            const result = await ProductsCollection.findOne({ _id: new ObjectId(id) })
+            res.send(result);
+        })
+
+        //Review
+        app.get('/reviews/:productCode', async (req, res) => {
+            const productCode = req.params.productCode;
+
+            const result = await ReviewCollection.find({ product_code: productCode }).toArray()
+            res.send(result);
+        })
+
+        app.post('/reviews/:productCode', async (req, res) => {
+            const productCode = req.params.productCode;
+            const review = req.body
+
+            const result = await ReviewCollection.insertOne(review)
+            res.send(result);
+        })
+
+        //Cart
+        app.post('/cartsProduct', async (req, res) => {
+            const P_Codes = req.body.P_Codes;
+            console.log(P_Codes);
+          
+            const productIds = P_Codes;
+            const result = await ProductsCollection.find({ product_code: { $in: productIds } }).toArray();
+            res.json(result);
+          });
 
 
 
